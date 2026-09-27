@@ -2,6 +2,10 @@ from datetime import date, datetime, time, timedelta
 
 from django.conf import settings
 from django.contrib import messages
+from django.db import IntegrityError
+from django.db.models import Q
+from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from django.views.generic.base import TemplateView
 
@@ -14,7 +18,7 @@ class CalendarView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        today = date.today()
+        today = timezone.localdate()
 
         year = self.request.GET.get('year', today.year)
         month = self.request.GET.get('month', today.month)
@@ -68,6 +72,7 @@ class DayView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         selected_date = date(self.kwargs['year'], self.kwargs['month'], self.kwargs['day'])
+        now = timezone.now()
 
         booked_times = set(
             Booking.objects.filter(date=selected_date).values_list('time', flat=True)
@@ -78,9 +83,10 @@ class DayView(TemplateView):
         end_time = time(settings.WORKING_HOURS_END, 0)
 
         while current_time < end_time:
+            slot_datetime = timezone.make_aware(datetime.combine(selected_date, current_time))
             slots.append({
                 'time': current_time,
-                'is_available': current_time not in booked_times,
+                'is_available': current_time not in booked_times and slot_datetime > now,
             })
             dt = datetime.combine(selected_date, current_time) + timedelta(minutes=settings.SLOT_DURATION_MINUTES)
             current_time = dt.time()
@@ -108,12 +114,16 @@ class BookingCreateView(CreateView):
         return initial
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        try:
+            response = super().form_valid(form)
+        except IntegrityError:
+            form.add_error(None, 'Слот уже занят')
+            return self.form_invalid(form)
         messages.success(self.request, 'Бронирование создано')
         return response
 
     def get_success_url(self):
-        return '/'
+        return reverse('bookings:detail', kwargs={'pk': self.object.pk})
 
 
 class BookingUpdateView(UpdateView):
@@ -122,12 +132,16 @@ class BookingUpdateView(UpdateView):
     template_name = 'bookings/booking_form.html'
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        try:
+            response = super().form_valid(form)
+        except IntegrityError:
+            form.add_error(None, 'Слот уже занят')
+            return self.form_invalid(form)
         messages.success(self.request, 'Бронирование обновлено')
         return response
 
     def get_success_url(self):
-        return '/'
+        return reverse('bookings:detail', kwargs={'pk': self.object.pk})
 
 
 class BookingDeleteView(DeleteView):
@@ -135,10 +149,22 @@ class BookingDeleteView(DeleteView):
 
     def get_success_url(self):
         messages.success(self.request, 'Бронирование удалено')
-        return '/'
+        return '/calendar/'
 
 
 class BookingDetailView(DetailView):
     model = Booking
     template_name = 'bookings/booking_detail.html'
     context_object_name = 'booking'
+
+
+class UpcomingView(TemplateView):
+    template_name = 'bookings/upcoming.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.localtime(timezone.now())
+        context['bookings'] = Booking.objects.filter(
+            Q(date__gt=now.date()) | Q(date=now.date(), time__gte=now.time())
+        ).order_by('date', 'time')
+        return context

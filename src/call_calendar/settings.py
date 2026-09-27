@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_tailwind_cli',
     'bookings',
+    'pages',
 ]
 
 MIDDLEWARE = [

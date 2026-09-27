@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 
 class Booking(models.Model):
@@ -32,6 +34,12 @@ class Booking(models.Model):
                 name='unique_slot',
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.recording_url:
+            slug = get_random_string(8, 'abcdefghijklmnopqrstuvwxyz0123456789')
+            self.recording_url = f'{settings.RECORDING_URL_BASE}{slug}'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.client_name} — {self.date} {self.time}'

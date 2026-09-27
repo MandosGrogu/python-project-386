@@ -31,18 +31,18 @@ uv run manage.py tailwind build
 uv run ruff check
 
 # Продакшн-запуск
-gunicorn task_manager.wsgi
+gunicorn call_calendar.wsgi
 ```
 
 ## Структура проекта
 
 ```
-src/            # Исходный код Django-приложения
-tasks/          # Приложение задач/бронирований
-users/          # Приложение пользователей
-templates/      # Шаблоны
-static/         # Статические файлы
-tests/          # Тесты
+src/call_calendar/   # Настройки Django-проекта
+bookings/            # Приложение бронирований
+pages/               # Приложение главной страницы
+templates/           # Шаблоны
+assets/              # Исходники статических файлов (Tailwind)
+tests/               # Тесты
 ```
 
 ## Соглашения
@@ -62,4 +62,18 @@ tests/          # Тесты
 
 ## Текущее состояние
 
-Проект на стадии каркаса. Код пока отсутствует — только README и CI-конфигурация.
+Реализованы бронирования (модель, форма с валидацией, CRUD-представления), календарь месяца, страница слотов дня, список предстоящих бронирований, главная страница, авто-генерация ссылки на запись (см. `docs/adr/0001-auto-generated-recording-url.md`), Docker-образ. Тесты — в `tests/test_calls.py`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in the repo's GitHub Issues (uses the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

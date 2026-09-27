@@ -12,10 +12,11 @@
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 min-h-screen">
+    {% block nav %}
     <nav class="bg-white/80 backdrop-blur-md border-b border-gray-200/60 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
-                <a href="{% url 'bookings:calendar' %}" class="flex items-center gap-2 group">
+                <a href="{% url 'pages:home' %}" class="flex items-center gap-2 group">
                     <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -23,16 +24,20 @@
                     </div>
                     <span class="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition">Календарь звонков</span>
                 </a>
-                <a href="{% url 'bookings:add' %}"
-                   class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                    </svg>
-                    Новое бронирование
-                </a>
+                <div class="flex items-center gap-1">
+                    <a href="{% url 'bookings:calendar' %}"
+                       class="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition">
+                        Календарь
+                    </a>
+                    <a href="{% url 'bookings:upcoming' %}"
+                       class="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition">
+                        Предстоящие встречи
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
+    {% endblock %}
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {% if messages %}
