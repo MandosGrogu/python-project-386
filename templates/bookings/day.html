@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ date|date:"d.m.Y" }} — Слоты{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+            {{ date|date:"d.m.Y" }}
+        </h1>
+        <p class="text-gray-500 mt-1">{{ date|date:"l" }} — выберите свободный слот</p>
+    </div>
+    <a href="{% url 'bookings:calendar' %}"
+       class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 flex items-center gap-2 shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        К календарю
+    </a>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+    {% for slot in slots %}
+    <div class="p-4 rounded-2xl border-2 text-center transition-all duration-200
+        {% if slot.is_available %}
+            bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 cursor-pointer
+        {% else %}
+            bg-gray-50 border-gray-100 opacity-60
+        {% endif %}">
+        <div class="text-lg font-bold {% if slot.is_available %}text-emerald-700{% else %}text-gray-400{% endif %}">
+            {{ slot.time|time:"H:i" }}
+        </div>
+        {% if slot.is_available %}
+            <a href="{% url 'bookings:add' %}?date={{ date|date:'Y-m-d' }}&time={{ slot.time|time:'H:i' }}"
+               class="block mt-2 text-xs font-semibold text-emerald-600 hover:text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-all duration-200">
+                Свободно
+            </a>
+        {% else %}
+            <span class="block mt-2 text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
+                Занято
+            </span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
