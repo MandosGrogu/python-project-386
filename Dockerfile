@@ -24,4 +24,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "call_calendar.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 call_calendar.wsgi:application"]
