@@ -7,6 +7,8 @@
 
 Учебный проект Хекслета: https://ru.hexlet.io/programs/python
 
+**Демо:** https://python-project-386-production.up.railway.app
+
 ## Стек
 
 - Python 3.14+, Django 6.1+
