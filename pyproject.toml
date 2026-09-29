@@ -28,4 +28,5 @@ dev = [
     "pytest>=8.0",
     "pytest-django>=4.8",
     "model-bakery>=1.18",
+    "openapi-spec-validator>=0.9.0",
 ]

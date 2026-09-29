@@ -1,0 +1,449 @@
+openapi: 3.0.3
+info:
+  title: Календарь звонков API
+  description: |
+    REST API сервиса бронирования 30-минутных слотов в календаре.
+    Авторизация отсутствует. Все эндпоинты публичны.
+    Часовой пояс по умолчанию — Europe/Moscow.
+    Формат даты и времени — RFC 3339 (date-time со смещением).
+    Ограничения, связанные с переходом на летнее время (DST), описываются текстом в description схем и эндпоинтов.
+    Локальный контекст пользователя (часовой пояс) передаётся в кастомном заголовке или теле запроса по справочнику IANA (tz database).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Локальная разработка
+
+tags:
+  - name: Слоты
+    description: Просмотр слотов и занятости
+  - name: Бронирования
+    description: CRUD бронирований
+
+paths:
+  /api/slots:
+    get:
+      tags: [Слоты]
+      summary: Список слотов дня
+      description: |
+        Возвращает сетку 30-минутных слотов с 9:00 до 18:00 для указанной даты.
+        Каждый слот содержит признак доступности и занятости.
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: Дата в формате YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Список слотов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  slots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Slot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/bookings:
+    get:
+      tags: [Бронирования]
+      summary: Список предстоящих бронирований
+      description: Бронирования, у которых дата и время наступления ≥ текущего момента (Europe/Moscow).
+      responses:
+        '200':
+          description: Список бронирований
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+
+    post:
+      tags: [Бронирования]
+      summary: Создать бронирование
+      description: |
+        Создаёт новое бронирование на свободный слот.
+        Проверка прошедшего времени применяется только при создании.
+        Проверка занятости слота абсолютная (без исключений).
+        Возвращает 409, если слот уже занят.
+        Возвращает 422 при нарушении правил валидации.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Бронирование создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/bookings/{id}:
+    get:
+      tags: [Бронирования]
+      summary: Получить бронирование
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Бронирование
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Бронирования]
+      summary: Обновить бронирование
+      description: |
+        Обновляет бронирование. Проверка занятости слота исключает текущее бронирование.
+        Проверка прошедшего времени не применяется — редактирование прошедшего бронирования разрешено.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookingRequest'
+      responses:
+        '200':
+          description: Обновлённое бронирование
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [Бронирования]
+      summary: Удалить бронирование
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Бронирование удалено
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    Slot:
+      type: object
+      properties:
+        time:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[03]0$'
+          example: '10:00'
+        available:
+          type: boolean
+          description: Слот свободен и не в прошлом
+        booking_id:
+          type: integer
+          nullable: true
+          description: ID бронирования, если слот занят
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[03]0$'
+        client_name:
+          type: string
+          maxLength: 200
+        topic:
+          type: string
+          maxLength: 300
+        meeting_type:
+          $ref: '#/components/schemas/MeetingType'
+        recording_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Ссылка на запись. Генерируется автоматически сервером при создании, не вводится вручную и не меняется при редактировании.
+        created_at:
+          type: string
+          format: date-time
+          description: Время создания в формате RFC 3339 (date-time со смещением).
+        updated_at:
+          type: string
+          format: date-time
+          description: Время последнего обновления в формате RFC 3339 (date-time со смещением).
+
+    CreateBookingRequest:
+      type: object
+      required: [date, time, client_name, topic, meeting_type]
+      properties:
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[03]0$'
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 300
+        meeting_type:
+          $ref: '#/components/schemas/MeetingType'
+
+    UpdateBookingRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[03]0$'
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 300
+        meeting_type:
+          $ref: '#/components/schemas/MeetingType'
+
+    MeetingType:
+      type: string
+      enum: [video, audio, personal]
+      description: |
+        - video — видеозвонок
+        - audio — аудиозвонок
+        - personal — личная встреча
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Ошибки по полям (для 422)
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: BAD_REQUEST
+            message: Некорректный формат запроса
+
+    ValidationError:
+      description: |
+        Ошибка валидации. Возможные причины:
+        - дата в выходной день
+        - время не кратно 30 минутам
+        - время вне рабочих часов (9:00–18:00, 18:00 исключено)
+        - дата и время в прошлом (только при создании)
+        - слот уже занят
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            weekend:
+              value:
+                code: WEEKEND_DAY
+                message: В выходные бронирование недоступно
+            off_grid_time:
+              value:
+                code: TIME_NOT_ON_GRID
+                message: Время должно быть кратно 30 минутам
+            outside_working_hours:
+              value:
+                code: OUTSIDE_WORKING_HOURS
+                message: Время должно быть в рабочие часы (9:00–18:00)
+            past_datetime:
+              value:
+                code: PAST_DATETIME
+                message: Нельзя запланировать звонок на прошедшее время
+
+    Conflict:
+      description: Слот уже занят другим бронированием
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: SLOT_ALREADY_BOOKED
+            message: Слот уже занят
+
+    NotFound:
+      description: Бронирование не найдено
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            message: Бронирование не найдено
+
+x-acceptance-criteria:
+  /api/slots:
+    get:
+      - given: дата в будущем и является рабочим днём
+        when: запрашивается список слотов
+        then: возвращается сетка 30-минутных слотов с 9:00 до 18:00 с признаком доступности
+      - given: дата является выходным днём
+        when: запрашивается список слотов
+        then: возвращается 422 с кодом WEEKEND_DAY
+      - given: дата имеет неверный формат
+        when: запрашивается список слотов
+        then: возвращается 400 с кодом BAD_REQUEST
+  /api/bookings:
+    get:
+      - given: в системе есть предстоящие бронирования
+        when: запрашивается список бронирований
+        then: возвращаются только бронирования, у которых слот ещё не наступил
+      - given: в системе нет предстоящих бронирований
+        when: запрашивается список бронирований
+        then: возвращается пустой массив
+    post:
+      - given: слот свободен и находится в будущем
+        when: создаётся бронирование
+        then: возвращается 201 с данными бронирования и сгенерированной ссылкой на запись
+      - given: слот уже занят другим бронированием
+        when: создаётся бронирование
+        then: возвращается 409 с кодом SLOT_ALREADY_BOOKED
+      - given: дата и время находятся в прошлом
+        when: создаётся бронирование
+        then: возвращается 422 с кодом PAST_DATETIME
+      - given: время не кратно 30 минутам
+        when: создаётся бронирование
+        then: возвращается 422 с кодом TIME_NOT_ON_GRID
+      - given: время вне рабочих часов
+        when: создаётся бронирование
+        then: возвращается 422 с кодом OUTSIDE_WORKING_HOURS
+      - given: дата является выходным днём
+        when: создаётся бронирование
+        then: возвращается 422 с кодом WEEKEND_DAY
+      - given: client_name является пустой строкой
+        when: создаётся бронирование
+        then: возвращается 422 с ошибкой валидации поля client_name
+  /api/bookings/{id}:
+    get:
+      - given: бронирование существует
+        when: запрашивается бронирование по id
+        then: возвращаются данные бронирования
+      - given: бронирование не существует
+        when: запрашивается бронирование по id
+        then: возвращается 404 с кодом NOT_FOUND
+    put:
+      - given: бронирование существует и новый слот свободен
+        when: обновляется бронирование
+        then: возвращаются обновлённые данные бронирования
+      - given: бронирование существует и редактируется прошедшее бронирование
+        when: обновляется бронирование
+        then: обновление разрешено, проверка прошедшего времени не применяется
+      - given: новый слот занят другим бронированием
+        when: обновляется бронирование
+        then: возвращается 409 с кодом SLOT_ALREADY_BOOKED
+      - given: бронирование не существует
+        when: обновляется бронирование
+        then: возвращается 404 с кодом NOT_FOUND
+    delete:
+      - given: бронирование существует
+        when: удаляется бронирование
+        then: возвращается 204, бронирование удалено
+      - given: бронирование не существует
+        when: удаляется бронирование
+        then: возвращается 404 с кодом NOT_FOUND
+
+x-edge-cases:
+  - name: Неверный формат даты
+    description: Дата в формате, отличном от YYYY-MM-DD, отклоняется с ошибкой 400
+  - name: Неверный формат времени
+    description: Время, не соответствующее шаблону HH:MM с кратностью 30 минутам, отклоняется с ошибкой 422
+  - name: Падение стороннего сервиса
+    description: Если сервис генерации ссылки на запись недоступен, бронирование не создаётся, возвращается 500
+  - name: Отсутствие интернета на клиенте
+    description: Клиент должен корректно обрабатывать сетевые ошибки и отображать понятное сообщение
+  - name: Пересечение прав доступа
+    description: Все операции публичны, авторизация отсутствует. Любой посетитель может создавать, изменять и удалять бронирования
+
+x-nfr:
+  performance:
+    description: Время отклика API для операций чтения — не более 300 мс (p95)
+  load:
+    description: Поддержка до 100 RPS без деградации производительности
+  security:
+    description: Все эндпоинты публичны, авторизация отсутствует. Валидация входных данных обязательна на каждом эндпоинте
+  logging:
+    description: Все операции создания, изменения и удаления бронирований логируются с указанием времени и идентификатора
+
+x-migration-strategy:
+  description: |
+    Стратегия миграции от существующих HTML-страниц к REST API.
+    API — отдельный слой, который сосуществует с HTML в переходный период.
+    Оба интерфейса работают параллельно, используя общую бизнес-логику.
+  phases:
+    - name: Фаза 1 — Реализация REST API
+      description: Реализовать REST API по спецификации, не затрагивая HTML-интерфейс
+    - name: Фаза 2 — Параллельная работа
+      description: API и HTML работают параллельно, используя общую бизнес-логику
+    - name: Фаза 3 — Переключение клиентов
+      description: Постепенный перевод клиентов с HTML на API
+    - name: Фаза 4 — Отключение HTML
+      description: Отключение HTML-интерфейса после полного перевода клиентов

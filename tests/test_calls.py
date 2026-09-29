@@ -96,7 +96,7 @@ def test_form_rejects_past_datetime():
 def test_form_rejects_past_time_today():
     form = BookingForm(data=get_valid_form_data(
         date=date.today(),
-        time=time(0, 0),
+        time=time(9, 0),
     ))
     assert not form.is_valid()
     assert 'date' in form.errors
