@@ -16,6 +16,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY . .
 
+RUN uv pip install -e . --no-deps
+
 RUN python manage.py collectstatic --noinput
 
 RUN useradd --create-home appuser \
